@@ -373,3 +373,97 @@ To deploy everything please do
 ```
 
 This will deploy the alert manager rules for elasticsearch & deploy dashboard for elasticsearch.
+
+## Elasticsearch Setup
+
+There is a three node Setup
+```
+➜  elasticsearch-monitoring-stack git:(main) k get po 
+NAME                                                              READY   STATUS    RESTARTS   AGE
+elastic-exporter-prometheus-elasticsearch-exporter-696c5cdcr5g4   1/1     Running   0          92m
+es-cluster-es-default-0                                           1/1     Running   0          96m
+es-cluster-es-default-1                                           1/1     Running   0          96m
+es-cluster-es-default-2                                           1/1     Running   0          96m
+```
+
+Prometheus Alertmanager rules
+```
+➜  elasticsearch-monitoring-stack git:(main) k get prometheusrule
+NAME                  AGE
+elasticsearch.rules   3h36m
+➜  elasticsearch-monitoring-stack git:(main) k get prometheusrule elasticsearch.rules -o yaml
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  annotations:
+    prometheus-operator-validated: "true"
+  creationTimestamp: "2025-02-26T15:19:11Z"
+  generation: 2
+  labels:
+    app: kube-prometheus-stack
+    release: prom-stack
+  name: elasticsearch.rules
+  namespace: default
+  resourceVersion: "42815"
+  uid: 8266d4a4-d510-4988-a01f-bc3f27938622
+spec:
+  groups:
+  - name: elasticsearch-cluster-health
+    rules:
+    - alert: ElasticsearchClusterHealthRed
+      annotations:
+        description: The cluster health has been red for over 5 minutes. Immediate
+          investigation is required.
+        summary: Elasticsearch Cluster Health is RED
+      expr: elasticsearch_cluster_health_status == 2
+      for: 5m
+      labels:
+        severity: critical
+    - alert: ElasticsearchClusterHealthYellow
+      annotations:
+        description: The cluster health has been yellow for over 10 minutes. Please
+          investigate potential issues.
+        summary: Elasticsearch Cluster Health is YELLOW
+      expr: elasticsearch_cluster_health_status == 1
+      for: 10m
+      labels:
+        severity: warning
+    - alert: Elasticsearch_Too_Few_Nodes_Running
+      annotations:
+        description: There are only {{$value}} < 3 ElasticSearch nodes running
+        summary: ElasticSearch running on less than 3 nodes
+      expr: elasticsearch_cluster_health_number_of_nodes < 3
+      for: 5m
+      labels:
+        severity: alert
+        value: '{{$value}}'
+  - name: elasticsearch-node-metrics
+    rules:
+    - alert: Elasticsearch_JVM_Heap_Too_High
+      annotations:
+        description: The heap in {{ $labels.instance }} is over 80% for 15m.
+        summary: ElasticSearch node {{ $labels.instance }} heap usage is high
+      expr: elasticsearch_jvm_memory_used_bytes{area="heap"} / elasticsearch_jvm_memory_max_bytes{area="heap"}
+        > 0.8
+      for: 15m
+      labels:
+        severity: alert
+        value: '{{$value}}'
+  - name: elasticsearch-index-metrics
+    rules:
+    - alert: Elasticsearch_json_parse_failures
+      annotations:
+        description: 'ElasticSearch node {{ $labels.instance }}: json parse failures
+          > 0 and has a value of {{ $value }}'
+        summary: 'ElasticSearch node {{ $labels.instance }}: json parse failures >
+          0 and has a value of {{ $value }}'
+      expr: elasticsearch_cluster_health_json_parse_failures > 0
+      for: 1m
+      labels:
+        severity: warning
+        value: '{{$value}}'
+```
+
+The elasticsearch dashboard is also deployed as part of the Setup.
+
+There are lot of things pending for this, i have to work on refactoring but time is less.
