@@ -1,0 +1,14 @@
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: es-cluster
+spec:
+  version: 8.17.2
+  nodeSets:
+  - name: default
+    count: 3
+    config:
+      # Tweak to avoid using mmap-based fields if desired
+      node.store.allow_mmap: false
+      # Roles for each node (master, data, ingest)
+      node.roles: ["master", "data", "ingest"]

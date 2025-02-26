@@ -1,0 +1,63 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  labels:
+    app: kube-prometheus-stack
+    release: prom-stack
+  name: elasticsearch.rules
+spec:
+  groups:        
+    - name: elasticsearch-cluster-health
+      rules:
+        - alert: ElasticsearchClusterHealthRed
+          expr: elasticsearch_cluster_health_status == 2
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Elasticsearch Cluster Health is RED"
+            description: "The cluster health has been red for over 5 minutes. Immediate investigation is required."
+        - alert: ElasticsearchClusterHealthYellow
+          expr: elasticsearch_cluster_health_status == 1
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Elasticsearch Cluster Health is YELLOW"
+            description: "The cluster health has been yellow for over 10 minutes. Please investigate potential issues."
+        - alert: Elasticsearch_Too_Few_Nodes_Running
+          expr: elasticsearch_cluster_health_number_of_nodes < 3
+          for: 5m
+          labels:
+            severity: alert
+            value: '{{$value}}'
+          annotations:
+            description: There are only {{$value}} < 3 ElasticSearch nodes running
+            summary: ElasticSearch running on less than 3 nodes
+
+
+    - name: elasticsearch-node-metrics
+      rules:
+        - alert: Elasticsearch_JVM_Heap_Too_High
+          expr: elasticsearch_jvm_memory_used_bytes{area="heap"} / elasticsearch_jvm_memory_max_bytes{area="heap"}
+            > 0.8
+          for: 15m
+          labels:
+            severity: alert
+            value: '{{$value}}'
+          annotations:
+            description: The heap in {{ $labels.instance }} is over 80% for 15m.
+            summary: ElasticSearch node {{ $labels.instance }} heap usage is high
+
+    - name: elasticsearch-index-metrics
+      rules:
+        - alert: Elasticsearch_json_parse_failures
+          expr: elasticsearch_cluster_health_json_parse_failures > 0
+          for: 1m
+          labels:
+            severity: warning
+            value: '{{$value}}'
+          annotations:
+            description: 'ElasticSearch node {{ $labels.instance }}: json parse failures > 0 and has a value of {{ $value }}'
+            summary: 'ElasticSearch node {{ $labels.instance }}: json parse failures > 0
+          and has a value of {{ $value }}'
